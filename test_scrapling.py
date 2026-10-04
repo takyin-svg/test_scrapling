@@ -1,45 +1,47 @@
 # test_scrapling.py
 from scrapling.fetchers import StealthyFetcher
 
-# 目標網站列表
 SOURCES = [
     {
         "name": "東方財富-港股新聞",
-        "url": "https://stock.eastmoney.com/a/chksc.html"
+        # 原 chksc.html 已 404，改用下方候选，逐个试出可用的
+        "url": "https:cgsdd.html",
+    },
+    {
+        "name": "東方財富-港股(备用)",
+        "url": "https:hk.html",
     },
     {
         "name": "新浪財經-港股新聞",
-        "url": "https://finance.sina.com.cn/stock/hkstock/"
-    }
+        "url": "https://finance.sina.com.cn/stock/hkstock/",
+    },
 ]
 
 def run_test():
-    print("🚀 開始測試 Scrapling StealthyFetcher 爬取能力...")
-    
+    print("開始測試 Scrapling StealthyFetcher 爬取能力...")
+
     for source in SOURCES:
-        print(f"\n📡 正在抓取: {source['name']} ({source['url']})")
+        print(f"\n正在抓取: {source['name']} ({source['url']})")
         try:
-            # 使用隱身模式抓取，自動繞過常見反爬與驗證
             page = StealthyFetcher.fetch(
                 source['url'],
-                headless=True,         # 無頭瀏覽器模式
-                network_idle=True,     # 等待網絡空閒（確保 JS 渲染完成）
-                auto_retry=True        # 失敗自動重試
+                headless=True,
+                network_idle=True,
             )
-            
-            # 檢查請求狀態
-            print(f"✅ 請求狀態碼: {page.status_code}")
-            
-            # 提取並打印頁面標題（驗證是否拿到真實內容而非驗證頁面）
-            title = page.css('title::text').get()
-            print(f"📄 頁面標題: {title.strip() if title else '未找到標題'}")
-            
-            # 簡單打印前 200 個字符驗證內容
-            body_text = page.css('body::text').getall()
-            print(f"📝 內容預覽: {''.join(body_text)[:200].strip()}...")
+
+            # 修正1：状态码是 .status 不是 .status_code
+            print(f"請求狀態碼: {page.status}")
+
+            # 修正2：Scrapling 选择器返回的是列表，取第一个
+            titles = page.css('title::text')
+            title = str(titles[0]).strip() if titles else '未找到標題'
+            print(f"頁面標題: {title}")
+
+            texts = page.css('body::text').getall()
+            print(f"內容預覽: {''.join(t for t in texts if t.strip())[:200]}...")
 
         except Exception as e:
-            print(f"❌ 抓取失敗: {str(e)}")
+            print(f"抓取失敗: {type(e).__name__}: {e}")
 
 if __name__ == "__main__":
     run_test()
