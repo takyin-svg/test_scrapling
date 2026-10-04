@@ -1,0 +1,28 @@
+name: Scrapling Cloud Test
+
+on:
+  workflow_dispatch: # 強烈建議加上這個，方便隨時在 GitHub 介面點擊手動觸發測試
+
+jobs:
+  test-scrapling:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Dependencies
+        run: |
+          pip install -r requirements.txt
+          # 關鍵步驟：安裝 Playwright 瀏覽器及系統依賴
+          playwright install chromium
+          playwright install-deps chromium 
+
+      - name: Run Scrapling Test
+        run: python test_scrapling.py
