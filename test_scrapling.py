@@ -1,9 +1,10 @@
-# test_scrapling.py
+# test_scrapling_v2.py
 import json
 import re
 import time
+import hashlib
 import xml.etree.ElementTree as ET
-from urllib.parse import urljoin
+from urllib.parse import urljoin, urlparse
 
 import scrapling
 from scrapling.fetchers import Fetcher, StealthyFetcher
@@ -33,21 +34,21 @@ SOURCES = [
         "url": "https://finance.sina.com.cn/stock/hkstock/",
     },
     {
-        "name": "智通财经",
+        "name": "智通財經",
         "kind": "html",
         "fetcher": "stealth",
         "timeout_sec": 60,
         "url": "https://www.zhitongcaijing.com/",
     },
     {
-        "name": "格隆汇",
+        "name": "格隆匯",
         "kind": "html",
         "fetcher": "stealth",
         "timeout_sec": 40,
         "url": "https://www.gelonghui.com/",
     },
     {
-        "name": "金十数据",
+        "name": "金十數據",
         "kind": "html",
         "fetcher": "stealth",
         "timeout_sec": 40,
@@ -189,7 +190,7 @@ def parse_eastmoney_json(page):
     try:
         data = json.loads(body)
     except Exception as e:
-        print(f"  [东财] JSON解析失败: {type(e).__name__} | 前120字: {body[:120]!r}")
+        print(f"  [東財] JSON解析失敗: {type(e).__name__} | 前120字: {body[:120]!r}")
         return items
 
     records = []
@@ -226,7 +227,7 @@ def parse_yahoo_rss(page):
     try:
         root = ET.fromstring(body.encode("utf-8", "ignore"))
     except Exception as e:
-        print(f"  [Yahoo-RSS] XML解析失败: {type(e).__name__}")
+        print(f"  [Yahoo-RSS] XML解析失敗: {type(e).__name__}")
         return items
     for item_el in root.iter("item"):
         t = item_el.findtext("title") or ""
@@ -292,23 +293,23 @@ def parse_sina_hk(page):
 
 
 def parse_zhitong(page):
-    items = _generic_list_parse(page, "智通财经", "article, .news-item, .feed-item, .article-item")
+    items = _generic_list_parse(page, "智通財經", "article, .news-item, .feed-item, .article-item")
     if not items:
-        items = _generic_list_parse(page, "智通财经", "a[href*='/news/']")
+        items = _generic_list_parse(page, "智通財經", "a[href*='/news/']")
     return items
 
 
 def parse_gelonghui(page):
-    items = _generic_list_parse(page, "格隆汇", "article, .article-item, .news-item, .feed-card, .home-feed-item")
+    items = _generic_list_parse(page, "格隆匯", "article, .article-item, .news-item, .feed-card, .home-feed-item")
     if not items:
-        items = _generic_list_parse(page, "格隆汇", "a[href*='/news/']")
+        items = _generic_list_parse(page, "格隆匯", "a[href*='/news/']")
     return items
 
 
 def parse_jin10(page):
-    items = _generic_list_parse(page, "金十数据", ".jin-flash, .flash-item, .news-flash, .jin10-item, article", link_selector=".title, .content, .text, p, a")
+    items = _generic_list_parse(page, "金十數據", ".jin-flash, .flash-item, .news-flash, .jin10-item, article", link_selector=".title, .content, .text, p, a")
     if not items:
-        items = _generic_list_parse(page, "金十数据", "a")
+        items = _generic_list_parse(page, "金十數據", "a")
     return items
 
 
@@ -316,10 +317,70 @@ PARSERS = {
     "东方财富": parse_eastmoney_json,
     "Yahoo-RSS": parse_yahoo_rss,
     "新浪港股": parse_sina_hk,
-    "智通财经": parse_zhitong,
-    "格隆汇": parse_gelonghui,
-    "金十数据": parse_jin10,
+    "智通財經": parse_zhitong,
+    "格隆匯": parse_gelonghui,
+    "金十數據": parse_jin10,
 }
+
+# ============ Yahoo 股票詳情 ============
+def fetch_yahoo_stock_detail(stock_code):
+    url = f"https://finance.yahoo.com/quote/{stock_code}/"
+    try:
+        page = Fetcher.get(url, timeout=20)
+    except Exception as e:
+        print(f"  ⚠️ Yahoo詳情 {stock_code} 抓取失敗: {type(e).__name__}: {str(e)[:120]}")
+        return None
+
+    st = get_status(page)
+    if st != 200:
+        print(f"  ⚠️ Yahoo詳情 {stock_code} 狀態碼={st}")
+        return None
+
+    detail = {
+        "stock_code": stock_code,
+        "name": "",
+        "price": "",
+        "change": "",
+        "change_percent": "",
+        "currency": "",
+        "market_status": "",
+        "as_of": "",
+    }
+
+    selectors = {
+        "name": "h1, .yf-1qfmdm4 h1, .D\\(ib\\) h1, .Fz\\(l\\)",
+        "price": ".Fw\\(b\\), .Trsdu\\(0\\.3s\\), .Fz\\(36px\\), .Mb\\(-4px\\)",
+        "change": ".Fw\\(500\\), .Pstart\\(8px\\), .Fz\\(24px\\)",
+        "change_percent": ".Fw\\(500\\), .Pstart\\(8px\\), .Fz\\(24px\\)",
+        "currency": ".Fz\\(14px\\), .C\\(\\$c-fuji-grey-c\\)",
+        "market_status": ".C\\(\\$c-fuji-grey-c\\), .Fz\\(14px\\)",
+    }
+
+    for key, sel in selectors.items():
+        try:
+            els = page.css(sel)
+            if els:
+                val = get_text(els[0]).strip()
+                if val:
+                    detail[key] = val
+        except Exception:
+            pass
+
+    if detail["price"]:
+        print(f"  ✅ Yahoo詳情 {stock_code}: {detail['name']} | {detail['price']} {detail['currency']}")
+        return detail
+
+    # 兜底：抓所有數字節點
+    print(f"  ⚠️ Yahoo詳情 {stock_code} 精確選擇器未命中，嘗試兜底")
+    try:
+        for el in page.css("span, div, h1, h2"):
+            t = get_text(el)
+            if t and len(t) < 30 and re.search(r"\d", t):
+                print(f"    兜底候選: {t[:40]}")
+    except Exception:
+        pass
+    return detail
+
 
 # ============ 抓取核心 ============
 def fetch_page(source_cfg, url):
@@ -392,16 +453,105 @@ def fetch_source(source_cfg):
     return all_items
 
 
+# ============ 去重與清洗 ============
+def normalize_url(url):
+    if not url:
+        return url
+    url = url.strip().rstrip("/")
+    url = re.sub(r"[?&](utm_source|utm_medium|utm_campaign|ref|fbclid)=[^&]*", "", url)
+    url = re.sub(r"[?&]+$", "", url)
+    return url
+
+
+def make_item_id(item):
+    raw = (item.get("url") or item.get("title") or "") + "|" + (item.get("source") or "")
+    return hashlib.md5(raw.encode("utf-8", "ignore")).hexdigest()
+
+
+def clean_title(title):
+    if not title:
+        return title
+    t = re.sub(r"\s*[-–—|／]\s*(新浪|智通|格隆匯|金十|東財|Yahoo|Reuters|Bloomberg).*", "", title, flags=re.IGNORECASE)
+    t = re.sub(r"\s*【[^】]*】\s*", "", t)
+    t = re.sub(r"\s*\([^)]*廣告[^)]*\)\s*", "", t, flags=re.IGNORECASE)
+    t = re.sub(r"\s{2,}", " ", t)
+    return t.strip()
+
+
+def deduplicate(items):
+    seen_ids = set()
+    seen_urls = set()
+    seen_titles = set()
+    deduped = []
+    for item in items:
+        item["url"] = normalize_url(item.get("url", ""))
+        item["title"] = clean_title(item.get("title", ""))
+        if not item["title"] or len(item["title"]) < 5:
+            continue
+        item_id = make_item_id(item)
+        if item_id in seen_ids:
+            continue
+        url = item.get("url", "")
+        if url and url in seen_urls:
+            continue
+        title_key = item["title"][:40]
+        if title_key in seen_titles:
+            continue
+        seen_ids.add(item_id)
+        if url:
+            seen_urls.add(url)
+        seen_titles.add(title_key)
+        deduped.append(item)
+    return deduped
+
+
+# ============ 主流程 ============
 def run_scraper():
     all_raw = []
     for src in SOURCES:
         items = fetch_source(src)
         all_raw.extend(items)
+
     print(f"\n📥 總計：全網共抓取到 {len(all_raw)} 條未處理原始資訊")
-    return all_raw
+
+    deduped = deduplicate(all_raw)
+    print(f"✅ 去重後：{len(deduped)} 條有效新聞")
+
+    # Yahoo 股票詳情
+    print("\n📊 開始抓取 Yahoo 股票詳情...")
+    stock_details = []
+    for code in YAHOO_STOCKS:
+        detail = fetch_yahoo_stock_detail(code)
+        if detail:
+            stock_details.append(detail)
+
+    result = {
+        "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
+        "stock_details": stock_details,
+        "news": deduped,
+        "stats": {
+            "raw_count": len(all_raw),
+            "deduped_count": len(deduped),
+            "stock_count": len(stock_details),
+        },
+    }
+
+    output = json.dumps(result, ensure_ascii=False, indent=2)
+    print("\n" + SEP)
+    print("JSON 輸出（前3000字）:")
+    print(SEP)
+    print(output[:3000])
+    if len(output) > 3000:
+        print(f"\n... 共 {len(output)} 字，完整內容已寫入 output.json")
+        with open("output.json", "w", encoding="utf-8") as f:
+            f.write(output)
+
+    return result
 
 
 if __name__ == "__main__":
     self_check()
     print()
-    run_scraper()
+
+---
+跑完把完整輸出貼回來，我就能直接鎖死各源選擇器。
