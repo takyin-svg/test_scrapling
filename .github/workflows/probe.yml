@@ -1,7 +1,7 @@
 name: Probe HK Stock News Sources
 
 on:
-  workflow_dispatch: # 支援手動一鍵觸發測試
+  workflow_dispatch: # 支援手動觸發測試
 
 jobs:
   probe:
@@ -18,14 +18,14 @@ jobs:
           python-version: '3.11'
           cache: 'pip'
 
-      - name: Install Scrapling and Patchright
+      - name: Install Scrapling, Patchright and curl_cffi
         run: |
           python -m pip install --upgrade pip
-          pip install scrapling patchright
+          pip install scrapling patchright curl-cffi
 
       - name: Install Patchright Chromium with System Dependencies
         run: |
-          # 安裝 Patchright Chromium 瀏覽器與 Linux 系統相依庫
+          # 安裝 Patchright Chromium 瀏覽器核心與 Linux 系統相依庫
           patchright install --with-deps chromium
 
       - name: Run Probe Script
