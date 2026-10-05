@@ -18,15 +18,17 @@ jobs:
           python-version: '3.11'
           cache: 'pip'
 
-      - name: Install Scrapling, Patchright and curl_cffi
+      - name: Install All Required Dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install scrapling patchright curl-cffi
+          # 安裝 scrapling 及其完整相依模組 (含 playwright, patchright, curl-cffi)
+          pip install "scrapling[all]" patchright playwright curl-cffi
 
-      - name: Install Patchright Chromium with System Dependencies
+      - name: Install Browser Binaries and System Dependencies
         run: |
-          # 安裝 Patchright Chromium 瀏覽器核心與 Linux 系統相依庫
-          patchright install --with-deps chromium
+          # 同步安裝 patchright 與 playwright 的 Chromium 核心及 Linux 系統相依庫
+          patchright install --with-deps chromium || true
+          playwright install --with-deps chromium
 
       - name: Run Probe Script
         run: |
