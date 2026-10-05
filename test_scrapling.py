@@ -552,6 +552,3 @@ def run_scraper():
 if __name__ == "__main__":
     self_check()
     print()
-
----
-跑完把完整輸出貼回來，我就能直接鎖死各源選擇器。
