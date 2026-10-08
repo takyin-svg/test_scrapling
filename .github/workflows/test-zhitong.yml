@@ -1,6 +1,5 @@
 name: Test Zhitong API
 
-# 這個指令就是讓 GitHub 出現 "Run workflow" 手動按鈕的關鍵！
 on:
   workflow_dispatch: 
 
@@ -15,12 +14,16 @@ jobs:
       - name: 🐍 Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.11' # 這裡會對齊你原本的 Python 版本
+          python-version: '3.11'
           
       - name: 📦 Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install requests
+          # 🚨 核心修改：直接安裝你專案裡的 requirements.txt，確保 scrapling 有被安裝
+          pip install -r requirements.txt
+          
+          # 如果你的 scrapling 底層依賴 playwright，可能還需要這一行 (若原本主程式有寫就保留)
+          python -m playwright install chromium --with-deps
           
       - name: 🚀 Run Test Script
         run: python test_zhitong.py
