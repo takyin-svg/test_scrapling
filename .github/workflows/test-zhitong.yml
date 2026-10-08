@@ -1,0 +1,26 @@
+name: Test Zhitong API
+
+# 這個指令就是讓 GitHub 出現 "Run workflow" 手動按鈕的關鍵！
+on:
+  workflow_dispatch: 
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: 📥 Checkout repository
+        uses: actions/checkout@v4
+        
+      - name: 🐍 Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11' # 這裡會對齊你原本的 Python 版本
+          
+      - name: 📦 Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install requests
+          
+      - name: 🚀 Run Test Script
+        run: python test_zhitong.py
