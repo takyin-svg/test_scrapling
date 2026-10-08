@@ -51,4 +51,12 @@ def test_zhitong_html():
         
         if valid_count > 0:
             print("🎉 HTML + XPath 穿透測試大成功！這證明網頁裡確實驗藏著資料，只是之前沒被挖出來。")
-            print("👉 現在你可以安心
+            print("👉 現在你可以安心地把這個邏輯更新到 scraper.py 裡了！")
+        else:
+            print("⚠️ 抓到了區塊，但文字長度不夠被過濾掉了。")
+
+    except Exception as e:
+        print(f"❌ 發生錯誤: {e}")
+
+if __name__ == "__main__":
+    test_zhitong_html()
